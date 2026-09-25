@@ -76,9 +76,9 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         Color buttonColor = new Color(reminderColor.getRed() / 4, reminderColor.getGreen() / 4,
             reminderColor.getBlue() / 4, 235);
         graphics.setColor(hovered ? new Color(40, 150, 60, 235) : buttonColor);
-        graphics.fillRoundRect(button.x, button.y, button.width, button.height, 5, 5);
+        graphics.fillRect(button.x, button.y, button.width, button.height);
         graphics.setColor(Color.WHITE);
-        graphics.drawRoundRect(button.x, button.y, button.width - 1, button.height - 1, 5, 5);
+        graphics.drawRect(button.x, button.y, button.width - 1, button.height - 1);
 
         int baseline = PADDING + metrics.getAscent();
         drawText(graphics, displayText, PADDING, baseline, Color.WHITE);
