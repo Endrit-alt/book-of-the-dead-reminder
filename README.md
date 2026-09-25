@@ -10,7 +10,7 @@ Plugin Hub revision `90eee3bdd863159b9f30473eaca35c68304898ac`. The original BSD
 
 - **Confirm button** only on Ancients, Standard, and Lunar spellbook warnings, to acknowledge an intentional spellbook choice. Missing-book and missing-rune warnings have no button. The existing hide hotkey can still dismiss any warning.
 - **Persistent acknowledgment**: unrelated inventory updates, rune-count changes, and visual setting changes do not bring back the same warning or repeat its notification. Banking and withdrawing **either the book or the pouch independently** resets confirmation if the warning still applies, including deposit/withdraw transitions reported before the next game tick. A warning also returns after its condition clears and recurs, when a different requirement becomes the warning, when the spellbook being confirmed changes, after logout/world hopping, or after restarting the plugin. Dismissing a low-rune warning with the hotkey also acknowledges its later depletion until one of these resets.
-- **Check Carried Rune Pouch**, enabled by default: carrying a pouch on a non-Arceuus spellbook prompts **Confirm spellbook : Ancients**, **Confirm spellbook : Standard**, or **Confirm spellbook : Lunar**, even without thrall runes or the book. Confirm acknowledges your intentional spellbook choice. It does not change the game's spellbook.
+- **Check Carried Book or Pouch**, enabled by default: carrying the Book of the Dead or a rune pouch on a non-Arceuus spellbook prompts **Confirm spellbook : Ancients**, **Confirm spellbook : Standard**, or **Confirm spellbook : Lunar**, even without thrall runes. Either item is enough; you do not need both. Confirm acknowledges your intentional spellbook choice. It does not change the game's spellbook.
 - Spellbook confirmation takes priority. Switching to Arceuus reveals any missing-rune warning, even if the book is also missing. Fixing the runes can then reveal a missing-book warning. Each notification condition can still be disabled separately.
 - Pouch types and quantities are still checked against your selected tier. Inventory runes, combination runes, and equipped infinite sources count toward the total. An ancient-rune pouch with sufficient thrall supplies elsewhere does not produce a rune warning.
 - Full warning checks are combined once per game tick, including updates reported through backing varps, to avoid warnings from intermediate loadouts. Lightweight book/pouch presence observations preserve banking transitions between ticks.
@@ -20,7 +20,7 @@ The Confirm button consumes its click and does not click the game underneath. Al
 
 ## Features
 
-The original rule warns when you have **exactly 2 out of 3 requirements** for casting thralls. This fork also checks a carried pouch: first confirm a non-Arceuus spellbook, then check thrall runes on Arceuus. Turn off **Check Carried Rune Pouch** to use only the original rule:
+The original rule warns when you have **exactly 2 out of 3 requirements** for casting thralls. This fork also checks carried items: either the book or pouch prompts confirmation of a non-Arceuus spellbook, while a pouch also checks thrall runes on Arceuus. Turn off **Check Carried Book or Pouch** to use only the original rule:
 
 ### The 3 Requirements:
 1. **Arceuus Spellbook** - You must be on the Arceuus spellbook
@@ -60,7 +60,7 @@ The plugin displays a reminder above your chatbox when you're missing one of the
 - **Minimum Casts**: Warn when you can cast fewer thralls than this (default: 1)
 - **Display Options**: Customize colors and enable flashing
 - **Hide Reminder Hotkey**: Acknowledge any current warning, including missing-book and missing-rune warnings without a Confirm button
-- **Check Carried Rune Pouch**: Confirm a non-Arceuus spellbook and check insufficient thrall runes even when other requirements are also missing
+- **Check Carried Book or Pouch**: Confirm a non-Arceuus spellbook and check insufficient thrall runes even when other requirements are also missing
 
 Long text names the spellbook with a confirmation prompt. Short text uses **Ancients!**, **Standard!**, or **Lunar!**. Custom text still uses the message you configure.
 

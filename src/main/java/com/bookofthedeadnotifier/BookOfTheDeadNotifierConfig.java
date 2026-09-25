@@ -88,8 +88,8 @@ public interface BookOfTheDeadNotifierConfig extends Config
 
     @ConfigItem(
         keyName = "checkCarriedRunePouch",
-        name = "Check Carried Rune Pouch",
-        description = "Confirm your current non-Arceuus spellbook when carrying a rune pouch; on Arceuus, warn about insufficient thrall runes even without the book",
+        name = "Check Carried Book or Pouch",
+        description = "Confirm your current non-Arceuus spellbook when carrying the Book of the Dead or a rune pouch; on Arceuus, a carried pouch warns about insufficient thrall runes even without the book",
         position = 3,
         section = notificationConditionsSection
     )

@@ -105,6 +105,50 @@ public class ReminderBehaviorTest
     }
 
     @Test
+    public void bookAlonePromptsOnEveryOtherSpellbookAndRearmsAfterBanking()
+    {
+        suppliedCasts = 0;
+        pouchPresent = false;
+        String[] spellbooks = {"Standard", "Ancients", "Lunar"};
+        for (int spellbook = 0; spellbook < spellbooks.length; spellbook++)
+        {
+            when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(spellbook);
+            bookPresent = false;
+            refresh();
+            assertFalse(plugin.shouldShowWarning());
+            bookPresent = true;
+            refresh();
+            assertTrue(plugin.shouldShowWarning());
+            assertEquals("Confirm spellbook : " + spellbooks[spellbook], plugin.getReminderLongText());
+            plugin.confirmWarning(plugin.getWarningVersion());
+            refresh();
+            assertFalse(plugin.shouldShowWarning());
+            bookPresent = false;
+            refresh();
+            bookPresent = true;
+            refresh();
+            assertTrue(plugin.shouldShowWarning());
+        }
+    }
+
+    @Test
+    public void bookOnlyPromptHonorsExtendedCheckAndSpellbookToggles()
+    {
+        suppliedCasts = 0;
+        when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
+        when(config.checkCarriedRunePouch()).thenReturn(false);
+        refresh();
+        assertFalse(plugin.shouldShowWarning());
+        when(config.checkCarriedRunePouch()).thenReturn(true);
+        when(config.notifyOnWrongSpellbook()).thenReturn(false);
+        refresh();
+        assertFalse(plugin.shouldShowWarning());
+        when(config.notifyOnWrongSpellbook()).thenReturn(true);
+        refresh();
+        assertTrue(plugin.shouldShowWarning());
+    }
+
+    @Test
     public void changingFromConfirmedAncientsToStandardRequiresNewConfirmation()
     {
         pouchPresent = true;

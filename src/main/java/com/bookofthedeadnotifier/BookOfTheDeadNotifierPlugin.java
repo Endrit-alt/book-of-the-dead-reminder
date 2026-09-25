@@ -273,13 +273,14 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
     private void evaluateWarningState()
     {
         // Confirm an intentional non-Arceuus loadout before asking for thrall supplies.
-        boolean checkPouch = config.checkCarriedRunePouch() && hasRunePouch;
+        boolean checkCarriedItems = config.checkCarriedRunePouch();
         MissingCondition missingCondition;
-        if (checkPouch && !hasArceuusSpellbook && config.notifyOnWrongSpellbook())
+        if (checkCarriedItems && (hasBookOfTheDead || hasRunePouch)
+            && !hasArceuusSpellbook && config.notifyOnWrongSpellbook())
         {
             missingCondition = MissingCondition.ARCEUUS_SPELLBOOK;
         }
-        else if (checkPouch && !hasSufficientThrallRunes && config.notifyOnMissingRunes())
+        else if (checkCarriedItems && hasRunePouch && !hasSufficientThrallRunes && config.notifyOnMissingRunes())
         {
             missingCondition = MissingCondition.THRALL_RUNES;
         }
