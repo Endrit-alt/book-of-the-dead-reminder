@@ -61,7 +61,8 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         int buttonWidth = metrics.stringWidth(CONFIRM_TEXT) + PADDING * 2;
         int height = metrics.getHeight() + PADDING * 2;
         int buttonX = PADDING + textWidth + BUTTON_GAP;
-        int width = buttonX + buttonWidth + 2;
+        boolean showConfirm = plugin.getCurrentMissingCondition() == MissingCondition.ARCEUUS_SPELLBOOK;
+        int width = showConfirm ? buttonX + buttonWidth + 2 : textWidth + PADDING * 2;
 
         Color reminderColor = config.reminderColor();
         Color warningColor = config.flashReminderBox() && client.getGameCycle() % 40 >= 20
@@ -70,6 +71,14 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         background.setRectangle(new Rectangle(0, 0, width, height));
         background.setBackgroundColor(warningColor);
         background.render(graphics);
+
+        int baseline = PADDING + metrics.getAscent();
+        drawText(graphics, displayText, PADDING, baseline, Color.WHITE);
+        if (!showConfirm)
+        {
+            clearConfirmTarget();
+            return new Dimension(width, height);
+        }
 
         Rectangle button = new Rectangle(buttonX, BUTTON_INSET, width - buttonX - BUTTON_INSET,
             height - BUTTON_INSET * 2);
@@ -95,8 +104,6 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
             borderGraphics.dispose();
         }
 
-        int baseline = PADDING + metrics.getAscent();
-        drawText(graphics, displayText, PADDING, baseline, Color.WHITE);
         drawText(graphics, CONFIRM_TEXT, buttonX + PADDING, baseline, Color.WHITE);
         confirmTarget = new ConfirmTarget(canvasButton, plugin.getWarningVersion());
         return new Dimension(width, height);
@@ -114,7 +121,9 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
     boolean confirmAt(Point point)
     {
         ConfirmTarget target = confirmTarget;
-        if (target == null || !plugin.shouldShowWarning() || client.getGameState() != GameState.LOGGED_IN
+        if (target == null || !plugin.shouldShowWarning()
+            || plugin.getCurrentMissingCondition() != MissingCondition.ARCEUUS_SPELLBOOK
+            || client.getGameState() != GameState.LOGGED_IN
             || client.isMenuOpen() || !target.bounds.contains(point))
         {
             return false;

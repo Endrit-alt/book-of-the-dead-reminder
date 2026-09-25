@@ -16,10 +16,12 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.HotkeyListener;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -183,11 +185,13 @@ public class ReminderBehaviorTest
     }
 
     @Test
-    public void confirmationSurvivesInventoryUpdatesAndDoesNotNotifyAgain()
+    public void hotkeyDismissesRuneWarningWithoutButtonAndSurvivesInventoryUpdates()
     {
         suppliedCasts = 0;
         refresh();
-        plugin.confirmWarning(plugin.getWarningVersion());
+        ArgumentCaptor<HotkeyListener> hotkey = ArgumentCaptor.forClass(HotkeyListener.class);
+        verify(keyManager).registerKeyListener(hotkey.capture());
+        hotkey.getValue().hotkeyPressed();
         refresh();
         refresh();
         assertFalse(plugin.shouldShowWarning());

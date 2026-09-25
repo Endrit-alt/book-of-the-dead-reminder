@@ -37,8 +37,9 @@ public class ConfirmOverlayTest
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
         when(plugin.shouldShowWarning()).thenReturn(true);
         when(plugin.getWarningVersion()).thenReturn(7L);
-        when(plugin.getReminderLongText()).thenReturn("Missing thrall runes");
-        when(plugin.getReminderShortText()).thenReturn("Runes!");
+        when(plugin.getCurrentMissingCondition()).thenReturn(MissingCondition.ARCEUUS_SPELLBOOK);
+        when(plugin.getReminderLongText()).thenReturn("Confirm spellbook : Ancients");
+        when(plugin.getReminderShortText()).thenReturn("Ancients!");
         // Use actual Guice construction: the renderer and mouse listener must share one overlay.
         Injector injector = Guice.createInjector(new AbstractModule()
         {
@@ -115,10 +116,9 @@ public class ConfirmOverlayTest
     }
 
     @Test
-    public void flashingAndLowRuneTextRemainReadable() throws Exception
+    public void flashingSpellbookPromptKeepsConfirmVisible() throws Exception
     {
         when(config.flashReminderBox()).thenReturn(true);
-        when(plugin.getReminderLongText()).thenReturn("Low on thrall runes (3 casts)");
         when(client.getGameCycle()).thenReturn(0);
         Point button = render("confirm-flash-base");
         when(client.getGameCycle()).thenReturn(25);
@@ -127,6 +127,30 @@ public class ConfirmOverlayTest
         render("confirm-flash-hover");
         when(client.getGameCycle()).thenReturn(0);
         render("confirm-flash-hover-base");
+    }
+
+    @Test
+    public void supplyWarningsRemoveButtonSpaceAndDoNotConsumeClicks() throws Exception
+    {
+        for (MissingCondition condition : new MissingCondition[] {
+            MissingCondition.BOOK_OF_THE_DEAD, MissingCondition.THRALL_RUNES })
+        {
+            when(plugin.getReminderLongText()).thenReturn(condition.getLongText());
+            when(plugin.getCurrentMissingCondition()).thenReturn(MissingCondition.ARCEUUS_SPELLBOOK);
+            Point oldButton = render("transition-" + condition);
+            when(plugin.getCurrentMissingCondition()).thenReturn(condition);
+            assertFalse(overlay.confirmAt(oldButton));
+            Point warning = render("warning-" + condition);
+            assertTrue(warning.x < oldButton.x - 40);
+            assertFalse(listener.mousePressed(event(MouseEvent.MOUSE_PRESSED, oldButton, 0, MouseEvent.BUTTON1)).isConsumed());
+            assertFalse(listener.mousePressed(event(MouseEvent.MOUSE_PRESSED, warning, 0, MouseEvent.BUTTON1)).isConsumed());
+        }
+        when(plugin.getReminderLongText()).thenReturn("Low on thrall runes (3 casts)");
+        assertFalse(overlay.confirmAt(render("warning-low-runes")));
+        when(config.reminderStyle()).thenReturn(BookOfTheDeadNotifierStyle.CUSTOM_TEXT);
+        when(config.customText()).thenReturn("Confirm spellbook : Ancients");
+        assertFalse(overlay.confirmAt(render("warning-custom-no-button")));
+        verify(plugin, never()).confirmWarning(anyLong());
     }
 
     @Test
@@ -140,11 +164,15 @@ public class ConfirmOverlayTest
         when(client.getMouseCanvasPosition()).thenReturn(null);
         when(plugin.getReminderLongText()).thenReturn("Confirm spellbook : Standard");
         assertTrue(overlay.confirmAt(render("confirm-standard")));
+        when(plugin.getReminderLongText()).thenReturn("Confirm spellbook : Lunar");
+        assertTrue(overlay.confirmAt(render("confirm-lunar")));
         when(config.reminderStyle()).thenReturn(BookOfTheDeadNotifierStyle.SHORT_TEXT);
         when(plugin.getReminderShortText()).thenReturn("Ancients!");
         render("confirm-ancients-short");
         when(plugin.getReminderShortText()).thenReturn("Standard!");
         render("confirm-standard-short");
+        when(plugin.getReminderShortText()).thenReturn("Lunar!");
+        assertTrue(overlay.confirmAt(render("confirm-lunar-short")));
     }
 
     private Point render(String filename) throws Exception
