@@ -24,7 +24,7 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
 {
     private static final int PADDING = 6;
     private static final int BUTTON_GAP = 12;
-    private static final int BUTTON_INSET = 2;
+    private static final int BUTTON_INSET = 3;
     private static final String CONFIRM_TEXT = "Confirm";
     private static final BasicStroke BUTTON_BORDER_STROKE = new BasicStroke(0.5f);
 
@@ -61,7 +61,7 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         int buttonWidth = metrics.stringWidth(CONFIRM_TEXT) + PADDING * 2;
         int height = metrics.getHeight() + PADDING * 2;
         int buttonX = PADDING + textWidth + BUTTON_GAP;
-        int width = buttonX + buttonWidth + BUTTON_INSET;
+        int width = buttonX + buttonWidth + 2;
 
         Color reminderColor = config.reminderColor();
         Color warningColor = config.flashReminderBox() && client.getGameCycle() % 40 >= 20
@@ -71,7 +71,8 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         background.setBackgroundColor(warningColor);
         background.render(graphics);
 
-        Rectangle button = new Rectangle(buttonX, BUTTON_INSET, buttonWidth, height - BUTTON_INSET * 2);
+        Rectangle button = new Rectangle(buttonX, BUTTON_INSET, width - buttonX - BUTTON_INSET,
+            height - BUTTON_INSET * 2);
         Rectangle canvasButton = new Rectangle(button);
         canvasButton.translate(getBounds().x, getBounds().y);
         net.runelite.api.Point mouse = client.getMouseCanvasPosition();
