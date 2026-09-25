@@ -1,5 +1,7 @@
 package com.bookofthedeadnotifier;
 
+import java.util.EnumMap;
+import java.util.Map;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
@@ -8,7 +10,6 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
@@ -41,6 +42,9 @@ public class ReminderBehaviorTest
     @Mock private ConfirmMouseListener confirmMouseListener;
     @Spy private BookOfTheDeadNotifierConfig config = new BookOfTheDeadNotifierConfig() {};
     @InjectMocks private BookOfTheDeadNotifierPlugin plugin;
+    private boolean bookPresent = true;
+    private boolean pouchPresent;
+    private int suppliedCasts = 10;
 
     @Before
     public void setUp() throws Exception
@@ -48,8 +52,17 @@ public class ReminderBehaviorTest
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
         when(client.getRealSkillLevel(Skill.MAGIC)).thenReturn(99);
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(3);
-        when(loadout.carries(ItemID.BOOK_OF_THE_DEAD)).thenReturn(true);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(10);
+        bookPresent = true;
+        suppliedCasts = 10;
+        when(loadout.carriedItems()).thenAnswer(call -> new PlayerLoadout.CarriedItems(bookPresent, pouchPresent));
+        when(loadout.snapshot()).thenAnswer(call ->
+        {
+            Map<ThrallRune, Integer> runes = new EnumMap<>(ThrallRune.class);
+            runes.put(ThrallRune.FIRE, suppliedCasts * 10);
+            runes.put(ThrallRune.BLOOD, suppliedCasts * 5);
+            runes.put(ThrallRune.COSMIC, suppliedCasts);
+            return new PlayerLoadout.Snapshot(new PlayerLoadout.CarriedItems(bookPresent, pouchPresent), runes);
+        });
         doAnswer(call -> { call.<Runnable>getArgument(0).run(); return null; })
             .when(clientThread).invokeLater(any(Runnable.class));
         plugin.startUp();
@@ -59,9 +72,9 @@ public class ReminderBehaviorTest
     public void confirmsAncientsEvenWithoutBookOrThrallRunes()
     {
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
-        when(loadout.carries(ItemID.BOOK_OF_THE_DEAD)).thenReturn(false);
-        when(loadout.carriesRunePouch()).thenReturn(true);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        bookPresent = false;
+        pouchPresent = true;
+        suppliedCasts = 0;
         refresh();
         assertTrue(plugin.shouldShowWarning());
         assertEquals(MissingCondition.ARCEUUS_SPELLBOOK, plugin.getCurrentMissingCondition());
@@ -74,8 +87,8 @@ public class ReminderBehaviorTest
     @Test
     public void confirmsStandardAndLunarRegardlessOfRuneSupply()
     {
-        when(loadout.carriesRunePouch()).thenReturn(true);
-        when(loadout.carries(ItemID.BOOK_OF_THE_DEAD)).thenReturn(false);
+        pouchPresent = true;
+        bookPresent = false;
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(0);
         refresh();
         assertEquals("Confirm spellbook : Standard", plugin.getReminderLongText());
@@ -90,7 +103,7 @@ public class ReminderBehaviorTest
     @Test
     public void changingFromConfirmedAncientsToStandardRequiresNewConfirmation()
     {
-        when(loadout.carriesRunePouch()).thenReturn(true);
+        pouchPresent = true;
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
         refresh();
         long oldVersion = plugin.getWarningVersion();
@@ -106,9 +119,9 @@ public class ReminderBehaviorTest
     @Test
     public void switchingToArceuusRevealsMissingRunesEvenWithoutBook()
     {
-        when(loadout.carriesRunePouch()).thenReturn(true);
-        when(loadout.carries(ItemID.BOOK_OF_THE_DEAD)).thenReturn(false);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        pouchPresent = true;
+        bookPresent = false;
+        suppliedCasts = 0;
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
         refresh();
         plugin.confirmWarning(plugin.getWarningVersion());
@@ -116,7 +129,7 @@ public class ReminderBehaviorTest
         refresh();
         assertTrue(plugin.shouldShowWarning());
         assertEquals("Missing thrall runes", plugin.getReminderLongText());
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(10);
+        suppliedCasts = 10;
         refresh();
         assertEquals(MissingCondition.BOOK_OF_THE_DEAD, plugin.getCurrentMissingCondition());
     }
@@ -124,9 +137,9 @@ public class ReminderBehaviorTest
     @Test
     public void disablingSpellbookPromptStillAllowsRuneWarning()
     {
-        when(loadout.carriesRunePouch()).thenReturn(true);
+        pouchPresent = true;
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         when(config.notifyOnWrongSpellbook()).thenReturn(false);
         refresh();
         assertTrue(plugin.shouldShowWarning());
@@ -137,8 +150,8 @@ public class ReminderBehaviorTest
     public void extendedPouchRuleCanBeDisabled()
     {
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
-        when(loadout.carriesRunePouch()).thenReturn(true);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        pouchPresent = true;
+        suppliedCasts = 0;
         when(config.checkCarriedRunePouch()).thenReturn(false);
         refresh();
         assertFalse(plugin.shouldShowWarning());
@@ -147,8 +160,8 @@ public class ReminderBehaviorTest
     @Test
     public void runeNotificationToggleStillApplies()
     {
-        when(loadout.carriesRunePouch()).thenReturn(true);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        pouchPresent = true;
+        suppliedCasts = 0;
         when(config.notifyOnMissingRunes()).thenReturn(false);
         refresh();
         assertFalse(plugin.shouldShowWarning());
@@ -157,11 +170,11 @@ public class ReminderBehaviorTest
     @Test
     public void noPouchKeepsOriginalTwoOfThreeRule()
     {
-        when(loadout.carries(ItemID.BOOK_OF_THE_DEAD)).thenReturn(false);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        bookPresent = false;
+        suppliedCasts = 0;
         refresh();
         assertFalse(plugin.shouldShowWarning());
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(10);
+        suppliedCasts = 10;
         refresh();
         assertEquals(MissingCondition.BOOK_OF_THE_DEAD, plugin.getCurrentMissingCondition());
         assertTrue(plugin.shouldShowWarning());
@@ -170,7 +183,7 @@ public class ReminderBehaviorTest
     @Test
     public void confirmationSurvivesInventoryUpdatesAndDoesNotNotifyAgain()
     {
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         refresh();
         plugin.confirmWarning(plugin.getWarningVersion());
         refresh();
@@ -182,12 +195,12 @@ public class ReminderBehaviorTest
     @Test
     public void warningRearmsAfterRequirementsAreFixed()
     {
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         refresh();
         plugin.confirmWarning(plugin.getWarningVersion());
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(10);
+        suppliedCasts = 10;
         refresh();
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         refresh();
         assertTrue(plugin.shouldShowWarning());
         verify(notifier, times(2)).notify(eq(config.notification()), anyString());
@@ -196,11 +209,11 @@ public class ReminderBehaviorTest
     @Test
     public void changedWarningNotifiesAndCannotBeDismissedByAnOldClick()
     {
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         refresh();
         long oldWarning = plugin.getWarningVersion();
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(10);
-        when(loadout.carries(ItemID.BOOK_OF_THE_DEAD)).thenReturn(false);
+        suppliedCasts = 10;
+        bookPresent = false;
         refresh();
         plugin.confirmWarning(oldWarning);
         assertTrue(plugin.shouldShowWarning());
@@ -211,9 +224,9 @@ public class ReminderBehaviorTest
     @Test
     public void intermediateContainerUpdatesAreCoalesced()
     {
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         plugin.onItemContainerChanged(new ItemContainerChanged(InventoryID.INVENTORY.getId(), null));
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(10);
+        suppliedCasts = 10;
         plugin.onGameTick(new GameTick());
         assertFalse(plugin.shouldShowWarning());
         verifyNoInteractions(notifier);
@@ -222,7 +235,7 @@ public class ReminderBehaviorTest
     @Test
     public void backingVarpUpdatesRefreshPouchRunes()
     {
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         VarbitChanged event = new VarbitChanged();
         event.setVarbitId(-1);
         event.setVarpId(123);
@@ -235,10 +248,10 @@ public class ReminderBehaviorTest
     public void lowRuneTextTracksCountsWithoutNotificationSpam()
     {
         when(config.minCasts()).thenReturn(5);
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(3);
+        suppliedCasts = 3;
         refresh();
         assertEquals("Low on thrall runes (3 casts)", plugin.getReminderLongText());
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(1);
+        suppliedCasts = 1;
         refresh();
         assertEquals("1 cast", plugin.getReminderShortText());
         verify(notifier, times(1)).notify(eq(config.notification()), anyString());
@@ -247,7 +260,7 @@ public class ReminderBehaviorTest
     @Test
     public void logoutAndRestartClearConfirmation() throws Exception
     {
-        when(loadout.castsAvailable(ThrallTier.GREATER)).thenReturn(0);
+        suppliedCasts = 0;
         refresh();
         plugin.confirmWarning(plugin.getWarningVersion());
         when(client.getGameState()).thenReturn(GameState.LOGIN_SCREEN);
@@ -267,9 +280,136 @@ public class ReminderBehaviorTest
         assertTrue(plugin.shouldShowWarning());
     }
 
-    private void refresh()
+    @Test
+    public void bankingOnlyBookThenWithdrawingRearmsAncientsPrompt()
+    {
+        pouchPresent = true;
+        suppliedCasts = 0;
+        when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
+        refresh();
+        plugin.confirmWarning(plugin.getWarningVersion());
+        bookPresent = false;
+        refresh();
+        assertFalse(plugin.shouldShowWarning());
+        bookPresent = true;
+        refresh();
+        assertTrue(plugin.shouldShowWarning());
+        assertEquals("Confirm spellbook : Ancients", plugin.getReminderLongText());
+        verify(notifier, times(2)).notify(eq(config.notification()), anyString());
+        plugin.confirmWarning(plugin.getWarningVersion());
+        refresh();
+        assertFalse(plugin.shouldShowWarning());
+    }
+
+    @Test
+    public void bankingOnlyPouchThenWithdrawingRearmsUnchangedRuneWarning()
+    {
+        pouchPresent = true;
+        suppliedCasts = 0;
+        refresh();
+        plugin.confirmWarning(plugin.getWarningVersion());
+        pouchPresent = false;
+        refresh();
+        assertFalse(plugin.shouldShowWarning());
+        pouchPresent = true;
+        refresh();
+        assertTrue(plugin.shouldShowWarning());
+        assertEquals(MissingCondition.THRALL_RUNES, plugin.getCurrentMissingCondition());
+        verify(notifier, times(2)).notify(eq(config.notification()), anyString());
+    }
+
+    @Test
+    public void fastBookDepositAndWithdrawalBeforeTickStillRearms()
+    {
+        assertFastBankingRearms(true);
+    }
+
+    @Test
+    public void fastPouchDepositAndWithdrawalBeforeTickStillRearms()
+    {
+        assertFastBankingRearms(false);
+    }
+
+    private void assertFastBankingRearms(boolean bankBook)
+    {
+        pouchPresent = true;
+        suppliedCasts = 0;
+        when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
+        refresh();
+        long oldVersion = plugin.getWarningVersion();
+        plugin.confirmWarning(oldVersion);
+        clearInvocations(loadout);
+        if (bankBook) bookPresent = false;
+        else pouchPresent = false;
+        inventoryChanged();
+        bookPresent = true;
+        pouchPresent = true;
+        inventoryChanged();
+        verify(loadout, never()).snapshot();
+        plugin.onGameTick(new GameTick());
+        verify(loadout, times(1)).snapshot();
+        plugin.confirmWarning(oldVersion);
+        assertTrue(plugin.shouldShowWarning());
+        assertEquals("Confirm spellbook : Ancients", plugin.getReminderLongText());
+        verify(notifier, times(2)).notify(eq(config.notification()), anyString());
+    }
+
+    @Test
+    public void withdrawingPouchWithFixedRunesDoesNotShowFalseWarning()
+    {
+        pouchPresent = true;
+        suppliedCasts = 0;
+        refresh();
+        plugin.confirmWarning(plugin.getWarningVersion());
+        pouchPresent = false;
+        inventoryChanged();
+        pouchPresent = true;
+        suppliedCasts = 10;
+        inventoryChanged();
+        plugin.onGameTick(new GameTick());
+        assertFalse(plugin.shouldShowWarning());
+        assertEquals(MissingCondition.NONE, plugin.getCurrentMissingCondition());
+        verify(notifier, times(1)).notify(eq(config.notification()), anyString());
+    }
+
+    @Test
+    public void alreadyVisibleWarningDoesNotNotifyAgainForBankingBook()
+    {
+        pouchPresent = true;
+        when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
+        refresh();
+        bookPresent = false;
+        refresh();
+        bookPresent = true;
+        refresh();
+        assertTrue(plugin.shouldShowWarning());
+        verify(notifier, times(1)).notify(eq(config.notification()), anyString());
+    }
+
+    @Test
+    public void confirmingCurrentLoadoutBeforeNextTickDoesNotImmediatelyRearm()
+    {
+        pouchPresent = true;
+        when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(1);
+        refresh();
+        bookPresent = false;
+        inventoryChanged();
+        bookPresent = true;
+        inventoryChanged();
+        plugin.confirmWarning(plugin.getWarningVersion());
+        plugin.onGameTick(new GameTick());
+        assertFalse(plugin.shouldShowWarning());
+        verify(notifier, times(1)).notify(eq(config.notification()), anyString());
+    }
+
+    private void inventoryChanged()
     {
         plugin.onItemContainerChanged(new ItemContainerChanged(InventoryID.INVENTORY.getId(), null));
+    }
+
+    private void refresh()
+    {
+        inventoryChanged();
         plugin.onGameTick(new GameTick());
     }
 }

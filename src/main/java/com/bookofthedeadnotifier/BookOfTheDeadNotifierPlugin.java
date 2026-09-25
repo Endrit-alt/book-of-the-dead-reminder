@@ -12,7 +12,6 @@ import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.Notifier;
@@ -74,6 +73,9 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
     private boolean hasArceuusSpellbook = false;
     private boolean hasSufficientThrallRunes = false;
     private boolean hasBookOfTheDead = false;
+    private boolean hasRunePouch = false;
+    private boolean carriedItemsKnown = false;
+    private boolean acknowledgmentNeedsReset = false;
     private int spellbook = -1;
     private int warningSpellbook = -1;
     private volatile boolean warningShown = false;
@@ -157,6 +159,11 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
     {
         if (isInventoryOrEquipment(event.getContainerId()))
         {
+            if (active && client.getGameState() == GameState.LOGGED_IN)
+            {
+                // Preserve item transitions even when deposit and withdrawal occur before the next tick.
+                checkCarriedItems(loadout.carriedItems());
+            }
             stateDirty = true;
         }
     }
@@ -222,8 +229,9 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         stateDirty = false;
         magicLevel = client.getRealSkillLevel(Skill.MAGIC);
         checkSpellbook();
-        checkThrallRunes();
-        checkBookOfTheDead();
+        PlayerLoadout.Snapshot snapshot = loadout.snapshot();
+        checkThrallRunes(snapshot);
+        checkCarriedItems(snapshot.getCarriedItems());
         evaluateWarningState();
     }
 
@@ -239,22 +247,33 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         hasArceuusSpellbook = spellbook == ARCEUUS_SPELLBOOK;
     }
 
-    private void checkThrallRunes()
+    private void checkThrallRunes(PlayerLoadout.Snapshot snapshot)
     {
         ThrallTier tier = config.thrallTier().resolve(magicLevel);
-        castsAvailable = loadout.castsAvailable(tier);
+        castsAvailable = snapshot.castsAvailable(tier);
         hasSufficientThrallRunes = castsAvailable >= config.minCasts();
     }
 
-    private void checkBookOfTheDead()
+    private void checkCarriedItems(PlayerLoadout.CarriedItems carriedItems)
     {
-        hasBookOfTheDead = loadout.carries(ItemID.BOOK_OF_THE_DEAD);
+        boolean bookPresent = carriedItems.hasBookOfTheDead();
+        boolean pouchPresent = carriedItems.hasRunePouch();
+        if (carriedItemsKnown && ((!hasBookOfTheDead && bookPresent) || (!hasRunePouch && pouchPresent)))
+        {
+            acknowledgmentNeedsReset = true;
+            // A click queued for the previous loadout must not acknowledge the new one.
+            warningVersion++;
+            overlay.clearConfirmTarget();
+        }
+        hasBookOfTheDead = bookPresent;
+        hasRunePouch = pouchPresent;
+        carriedItemsKnown = true;
     }
 
     private void evaluateWarningState()
     {
         // Confirm an intentional non-Arceuus loadout before asking for thrall supplies.
-        boolean checkPouch = config.checkCarriedRunePouch() && loadout.carriesRunePouch();
+        boolean checkPouch = config.checkCarriedRunePouch() && hasRunePouch;
         MissingCondition missingCondition;
         if (checkPouch && !hasArceuusSpellbook && config.notifyOnWrongSpellbook())
         {
@@ -275,8 +294,11 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         }
 
         // Keep the condition after Confirm, so unrelated inventory updates cannot re-show it.
+        boolean rearmAcknowledgedWarning = acknowledgmentNeedsReset && !warningShown;
+        acknowledgmentNeedsReset = false;
         int nextWarningSpellbook = missingCondition == MissingCondition.ARCEUUS_SPELLBOOK ? spellbook : -1;
-        if (missingCondition == currentMissingCondition && nextWarningSpellbook == warningSpellbook)
+        if (missingCondition == currentMissingCondition && nextWarningSpellbook == warningSpellbook
+            && !rearmAcknowledgedWarning)
         {
             return;
         }
@@ -414,6 +436,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
             if (active && warningShown && warningVersion == expectedVersion)
             {
                 warningShown = false;
+                acknowledgmentNeedsReset = false;
                 overlay.clearConfirmTarget();
             }
         });
@@ -421,6 +444,10 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
 
     private void clearWarning()
     {
+        hasBookOfTheDead = false;
+        hasRunePouch = false;
+        carriedItemsKnown = false;
+        acknowledgmentNeedsReset = false;
         warningShown = false;
         currentMissingCondition = MissingCondition.NONE;
         warningSpellbook = -1;

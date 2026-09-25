@@ -55,8 +55,8 @@ public class PlayerLoadoutTest
         slot(0, ItemID.WATERRUNE, 1000);
         slot(1, ItemID.DEATHRUNE, 1000);
         slot(2, ItemID.BLOODRUNE, 1000);
-        assertTrue(loadout.carriesRunePouch());
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
+        assertTrue(loadout.carriedItems().hasRunePouch());
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -69,7 +69,7 @@ public class PlayerLoadoutTest
             ItemID.DIVINE_RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH_TROUVER})
         {
             inventory(pouch, 1);
-            assertEquals(10, loadout.castsAvailable(ThrallTier.GREATER));
+            assertEquals(10, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
         }
     }
 
@@ -81,7 +81,7 @@ public class PlayerLoadoutTest
         slot(0, ItemID.FIRERUNE, 5);
         slot(1, ItemID.BLOODRUNE, 2);
         slot(3, ItemID.COSMICRUNE, 1);
-        assertEquals(1, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(1, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -92,7 +92,7 @@ public class PlayerLoadoutTest
         slot(0, ItemID.WATERRUNE, 100);
         slot(1, ItemID.DEATHRUNE, 100);
         slot(2, ItemID.BLOODRUNE, 100);
-        assertEquals(1, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(1, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -101,8 +101,8 @@ public class PlayerLoadoutTest
         slot(0, ItemID.FIRERUNE, 100);
         slot(1, ItemID.BLOODRUNE, 50);
         slot(2, ItemID.COSMICRUNE, 10);
-        assertFalse(loadout.carriesRunePouch());
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
+        assertFalse(loadout.carriedItems().hasRunePouch());
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -112,7 +112,7 @@ public class PlayerLoadoutTest
         slot(3, ItemID.LAVARUNE, 50);
         slot(4, ItemID.BLOODRUNE, 25);
         slot(5, ItemID.AETHERRUNE, 5);
-        assertEquals(5, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(5, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -122,9 +122,9 @@ public class PlayerLoadoutTest
         slot(0, ItemID.FIRERUNE, 100);
         slot(1, ItemID.BLOODRUNE, 50);
         slot(2, ItemID.COSMICRUNE, 0);
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
         slot(2, -1, 100);
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -132,10 +132,11 @@ public class PlayerLoadoutTest
     {
         when(inventory.getItems()).thenReturn(new Item[]{new Item(ItemID.STAFF_OF_FIRE, 1),
             new Item(ItemID.BLOODRUNE, 50), new Item(ItemID.COSMICRUNE, 10)});
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
-        when(equipment.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx()))
-            .thenReturn(new Item(ItemID.STAFF_OF_FIRE, 1));
-        assertEquals(10, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
+        Item[] wornItems = new Item[EquipmentInventorySlot.SHIELD.getSlotIdx() + 1];
+        wornItems[EquipmentInventorySlot.WEAPON.getSlotIdx()] = new Item(ItemID.STAFF_OF_FIRE, 1);
+        when(equipment.getItems()).thenReturn(wornItems);
+        assertEquals(10, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
     }
 
     @Test
@@ -143,12 +144,92 @@ public class PlayerLoadoutTest
     {
         when(client.getItemContainer(InventoryID.INVENTORY)).thenReturn(null);
         when(client.getItemContainer(InventoryID.EQUIPMENT)).thenReturn(null);
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
         when(client.getItemContainer(InventoryID.INVENTORY)).thenReturn(inventory);
         inventory(ItemID.BH_RUNE_POUCH, 1);
         slot(0, ItemID.FIRERUNE, 100);
         when(client.getEnum(EnumID.RUNEPOUCH_RUNE)).thenReturn(null);
-        assertEquals(0, loadout.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
+    }
+
+    @Test
+    public void snapshotReadsEachContainerAndPouchSlotOnlyOnce()
+    {
+        when(inventory.getItems()).thenReturn(new Item[]{new Item(ItemID.DIVINE_RUNE_POUCH, 1),
+            new Item(ItemID.BOOK_OF_THE_DEAD, 1)});
+        slot(0, ItemID.FIRERUNE, 100);
+        slot(1, ItemID.BLOODRUNE, 50);
+        slot(2, ItemID.COSMICRUNE, 10);
+        PlayerLoadout.Snapshot snapshot = loadout.snapshot();
+        assertTrue(snapshot.getCarriedItems().hasBookOfTheDead());
+        assertTrue(snapshot.getCarriedItems().hasRunePouch());
+        assertEquals(10, snapshot.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, snapshot.castsAvailable(ThrallTier.LESSER));
+        assertEquals(0, snapshot.castsAvailable(ThrallTier.SUPERIOR));
+        verify(client, times(1)).getItemContainer(InventoryID.INVENTORY);
+        verify(client, times(1)).getItemContainer(InventoryID.EQUIPMENT);
+        verify(inventory, times(1)).getItems();
+        verify(equipment, times(1)).getItems();
+        verify(client, times(1)).getEnum(EnumID.RUNEPOUCH_RUNE);
+        for (int slot = 0; slot < TYPES.length; slot++)
+        {
+            verify(client, times(1)).getVarbitValue(TYPES[slot]);
+            verify(client, times(1)).getVarbitValue(QUANTITIES[slot]);
+        }
+        verifyNoMoreInteractions(client, inventory, equipment);
+    }
+
+    @Test
+    public void combinedMaximumStacksCannotOverflow()
+    {
+        when(inventory.getItems()).thenReturn(new Item[]{new Item(ItemID.DIVINE_RUNE_POUCH, 1),
+            new Item(ItemID.FIRERUNE, Integer.MAX_VALUE), new Item(ItemID.LAVARUNE, Integer.MAX_VALUE),
+            new Item(ItemID.BLOODRUNE, Integer.MAX_VALUE), new Item(ItemID.COSMICRUNE, Integer.MAX_VALUE),
+            new Item(ItemID.AETHERRUNE, Integer.MAX_VALUE)});
+        slot(0, ItemID.FIRERUNE, 16000);
+        slot(1, ItemID.BLOODRUNE, 16000);
+        slot(2, ItemID.COSMICRUNE, 16000);
+        assertEquals(Integer.MAX_VALUE / 10, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
+    }
+
+    @Test
+    public void maximumPouchSlotsAndInfiniteSourceCannotOverflow()
+    {
+        inventory(ItemID.DIVINE_RUNE_POUCH, 1);
+        slot(0, ItemID.FIRERUNE, Integer.MAX_VALUE);
+        slot(1, ItemID.LAVARUNE, Integer.MAX_VALUE);
+        slot(2, ItemID.BLOODRUNE, Integer.MAX_VALUE);
+        slot(3, ItemID.COSMICRUNE, Integer.MAX_VALUE);
+        slot(4, ItemID.AETHERRUNE, Integer.MAX_VALUE);
+        Item[] wornItems = new Item[EquipmentInventorySlot.SHIELD.getSlotIdx() + 1];
+        wornItems[EquipmentInventorySlot.WEAPON.getSlotIdx()] = new Item(ItemID.STAFF_OF_FIRE, 1);
+        when(equipment.getItems()).thenReturn(wornItems);
+        assertEquals(Integer.MAX_VALUE / 10, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
+    }
+
+    @Test
+    public void snapshotDoesNotChangeWhenLiveContainersChange()
+    {
+        when(inventory.getItems()).thenReturn(new Item[]{new Item(ItemID.FIRERUNE, 10),
+            new Item(ItemID.BLOODRUNE, 5), new Item(ItemID.COSMICRUNE, 1)});
+        PlayerLoadout.Snapshot snapshot = loadout.snapshot();
+        when(inventory.getItems()).thenReturn(new Item[0]);
+        assertEquals(1, snapshot.castsAvailable(ThrallTier.GREATER));
+        assertEquals(0, loadout.snapshot().castsAvailable(ThrallTier.GREATER));
+    }
+
+    @Test
+    public void itemObservationDoesNotReadPouchRunesAndRecognizesEquippedBook()
+    {
+        inventory(ItemID.DIVINE_RUNE_POUCH, 1);
+        Item[] wornItems = new Item[EquipmentInventorySlot.SHIELD.getSlotIdx() + 1];
+        wornItems[EquipmentInventorySlot.SHIELD.getSlotIdx()] = new Item(ItemID.BOOK_OF_THE_DEAD, 1);
+        when(equipment.getItems()).thenReturn(wornItems);
+        PlayerLoadout.CarriedItems carriedItems = loadout.carriedItems();
+        assertTrue(carriedItems.hasBookOfTheDead());
+        assertTrue(carriedItems.hasRunePouch());
+        verify(client, never()).getVarbitValue(anyInt());
+        verify(client, never()).getEnum(anyInt());
     }
 
     private void inventory(int item, int quantity)
