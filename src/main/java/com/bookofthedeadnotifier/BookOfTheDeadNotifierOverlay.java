@@ -1,11 +1,13 @@
 package com.bookofthedeadnotifier;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
@@ -23,6 +25,7 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
     private static final int PADDING = 6;
     private static final int BUTTON_GAP = 12;
     private static final String CONFIRM_TEXT = "Confirm";
+    private static final BasicStroke BUTTON_BORDER_STROKE = new BasicStroke(0.5f);
 
     private final Client client;
     private final BookOfTheDeadNotifierPlugin plugin;
@@ -77,8 +80,18 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
             12 + reminderColor.getBlue() / 4);
         graphics.setColor(hovered ? new Color(40, 150, 60) : buttonColor);
         graphics.fillRect(button.x, button.y, button.width, button.height);
-        graphics.setColor(Color.WHITE);
-        graphics.drawRect(button.x, button.y, button.width - 1, button.height - 1);
+        Graphics2D borderGraphics = (Graphics2D) graphics.create();
+        try
+        {
+            borderGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            borderGraphics.setStroke(BUTTON_BORDER_STROKE);
+            borderGraphics.setColor(Color.WHITE);
+            borderGraphics.drawRect(button.x, button.y, button.width - 1, button.height - 1);
+        }
+        finally
+        {
+            borderGraphics.dispose();
+        }
 
         int baseline = PADDING + metrics.getAscent();
         drawText(graphics, displayText, PADDING, baseline, Color.WHITE);
