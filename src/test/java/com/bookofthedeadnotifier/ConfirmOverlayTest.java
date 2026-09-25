@@ -127,7 +127,11 @@ public class ConfirmOverlayTest
     public void spellbookPromptsRenderWithConfirm() throws Exception
     {
         when(plugin.getReminderLongText()).thenReturn("Confirm spellbook : Ancients");
-        assertTrue(overlay.confirmAt(render("confirm-ancients")));
+        Point button = render("confirm-ancients");
+        when(client.getMouseCanvasPosition()).thenReturn(new net.runelite.api.Point(button.x, button.y));
+        render("confirm-hover");
+        assertTrue(overlay.confirmAt(button));
+        when(client.getMouseCanvasPosition()).thenReturn(null);
         when(plugin.getReminderLongText()).thenReturn("Confirm spellbook : Standard");
         assertTrue(overlay.confirmAt(render("confirm-standard")));
     }

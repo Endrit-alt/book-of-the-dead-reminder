@@ -59,10 +59,11 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         int buttonX = PADDING + textWidth + BUTTON_GAP;
         int width = buttonX + buttonWidth + PADDING;
 
+        Color warningColor = config.flashReminderBox() && client.getGameCycle() % 40 >= 20
+            ? config.flashColor() : config.reminderColor();
         BackgroundComponent background = new BackgroundComponent();
         background.setRectangle(new Rectangle(0, 0, width, height));
-        background.setBackgroundColor(config.flashReminderBox() && client.getGameCycle() % 40 >= 20
-            ? config.flashColor() : config.reminderColor());
+        background.setBackgroundColor(warningColor);
         background.render(graphics);
 
         Rectangle button = new Rectangle(buttonX, 2, buttonWidth, height - 4);
@@ -70,14 +71,16 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         canvasButton.translate(getBounds().x, getBounds().y);
         net.runelite.api.Point mouse = client.getMouseCanvasPosition();
         boolean hovered = mouse != null && !client.isMenuOpen() && canvasButton.contains(mouse.getX(), mouse.getY());
-        graphics.setColor(hovered ? new Color(80, 100, 80, 230) : new Color(35, 45, 35, 220));
+        Color buttonColor = new Color(warningColor.getRed() / 4, warningColor.getGreen() / 4,
+            warningColor.getBlue() / 4, 235);
+        graphics.setColor(hovered ? new Color(40, 150, 60, 235) : buttonColor);
         graphics.fillRoundRect(button.x, button.y, button.width, button.height, 5, 5);
-        graphics.setColor(new Color(180, 210, 180));
+        graphics.setColor(Color.WHITE);
         graphics.drawRoundRect(button.x, button.y, button.width - 1, button.height - 1, 5, 5);
 
         int baseline = PADDING + metrics.getAscent();
         drawText(graphics, displayText, PADDING, baseline, Color.WHITE);
-        drawText(graphics, CONFIRM_TEXT, buttonX + PADDING, baseline, new Color(220, 255, 220));
+        drawText(graphics, CONFIRM_TEXT, buttonX + PADDING, baseline, Color.WHITE);
         confirmTarget = new ConfirmTarget(canvasButton, plugin.getWarningVersion());
         return new Dimension(width, height);
     }
