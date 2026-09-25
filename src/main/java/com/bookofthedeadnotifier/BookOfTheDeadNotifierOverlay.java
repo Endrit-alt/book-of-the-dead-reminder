@@ -63,8 +63,7 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         Color warningColor = config.flashReminderBox() && client.getGameCycle() % 40 >= 20
             ? config.flashColor() : reminderColor;
         BackgroundComponent background = new BackgroundComponent();
-        // Leave a gap before Confirm so no flashing pixels are drawn beneath its translucent fill.
-        background.setRectangle(new Rectangle(0, 0, buttonX - BUTTON_GAP / 2, height));
+        background.setRectangle(new Rectangle(0, 0, width, height));
         background.setBackgroundColor(warningColor);
         background.render(graphics);
 
@@ -73,9 +72,10 @@ public class BookOfTheDeadNotifierOverlay extends Overlay
         canvasButton.translate(getBounds().x, getBounds().y);
         net.runelite.api.Point mouse = client.getMouseCanvasPosition();
         boolean hovered = mouse != null && !client.isMenuOpen() && canvasButton.contains(mouse.getX(), mouse.getY());
-        Color buttonColor = new Color(reminderColor.getRed() / 4, reminderColor.getGreen() / 4,
-            reminderColor.getBlue() / 4, 235);
-        graphics.setColor(hovered ? new Color(40, 150, 60, 235) : buttonColor);
+        // An opaque fill keeps the shared panel's flash from bleeding through the button.
+        Color buttonColor = new Color(12 + reminderColor.getRed() / 4, 12 + reminderColor.getGreen() / 4,
+            12 + reminderColor.getBlue() / 4);
+        graphics.setColor(hovered ? new Color(40, 150, 60) : buttonColor);
         graphics.fillRect(button.x, button.y, button.width, button.height);
         graphics.setColor(Color.WHITE);
         graphics.drawRect(button.x, button.y, button.width - 1, button.height - 1);
