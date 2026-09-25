@@ -1,147 +1,137 @@
 package com.bookofthedeadnotifier;
 
-import net.runelite.api.Client;
-import net.runelite.client.ui.overlay.OverlayPanel;
-import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.components.LineComponent;
-
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
 import javax.inject.Inject;
-import java.awt.*;
+import javax.inject.Singleton;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.client.ui.overlay.Overlay;
+import net.runelite.client.ui.overlay.OverlayLayer;
+import net.runelite.client.ui.overlay.OverlayPosition;
+import net.runelite.client.ui.overlay.components.BackgroundComponent;
+import net.runelite.client.ui.overlay.components.TextComponent;
+import net.runelite.client.util.Text;
 
-public class BookOfTheDeadNotifierOverlay extends OverlayPanel
+@Singleton
+public class BookOfTheDeadNotifierOverlay extends Overlay
 {
+    private static final int PADDING = 6;
+    private static final int BUTTON_GAP = 12;
+    private static final String CONFIRM_TEXT = "Confirm";
+
     private final Client client;
     private final BookOfTheDeadNotifierPlugin plugin;
     private final BookOfTheDeadNotifierConfig config;
 
+    // Publish bounds and warning identity together, from the renderer to the AWT mouse listener.
+    private volatile ConfirmTarget confirmTarget;
+
     @Inject
-    private BookOfTheDeadNotifierOverlay(Client client, BookOfTheDeadNotifierPlugin plugin, BookOfTheDeadNotifierConfig config)
+    BookOfTheDeadNotifierOverlay(Client client, BookOfTheDeadNotifierPlugin plugin, BookOfTheDeadNotifierConfig config)
     {
+        super(plugin);
         this.client = client;
         this.plugin = plugin;
         this.config = config;
         setPosition(OverlayPosition.ABOVE_CHATBOX_RIGHT);
+        setLayer(OverlayLayer.ABOVE_WIDGETS);
     }
 
     @Override
     public Dimension render(Graphics2D graphics)
     {
-        if (!shouldRenderWarning())
+        if (client.getGameState() != GameState.LOGGED_IN || !plugin.shouldShowWarning())
         {
+            clearConfirmTarget();
             return null;
         }
 
         String displayText = getDisplayText();
-        if (displayText == null)
-        {
-            return null;
-        }
+        FontMetrics metrics = graphics.getFontMetrics();
+        int textWidth = metrics.stringWidth(Text.removeTags(displayText));
+        int buttonWidth = metrics.stringWidth(CONFIRM_TEXT) + PADDING * 2;
+        int height = metrics.getHeight() + PADDING * 2;
+        int buttonX = PADDING + textWidth + BUTTON_GAP;
+        int width = buttonX + buttonWidth + PADDING;
 
-        setupPanelContent(displayText);
-        configurePanelSize(graphics, displayText);
-        configurePanelColor();
+        BackgroundComponent background = new BackgroundComponent();
+        background.setRectangle(new Rectangle(0, 0, width, height));
+        background.setBackgroundColor(config.flashReminderBox() && client.getGameCycle() % 40 >= 20
+            ? config.flashColor() : config.reminderColor());
+        background.render(graphics);
 
-        return renderPanel(graphics);
+        Rectangle button = new Rectangle(buttonX, 2, buttonWidth, height - 4);
+        Rectangle canvasButton = new Rectangle(button);
+        canvasButton.translate(getBounds().x, getBounds().y);
+        net.runelite.api.Point mouse = client.getMouseCanvasPosition();
+        boolean hovered = mouse != null && !client.isMenuOpen() && canvasButton.contains(mouse.getX(), mouse.getY());
+        graphics.setColor(hovered ? new Color(80, 100, 80, 230) : new Color(35, 45, 35, 220));
+        graphics.fillRoundRect(button.x, button.y, button.width, button.height, 5, 5);
+        graphics.setColor(new Color(180, 210, 180));
+        graphics.drawRoundRect(button.x, button.y, button.width - 1, button.height - 1, 5, 5);
+
+        int baseline = PADDING + metrics.getAscent();
+        drawText(graphics, displayText, PADDING, baseline, Color.WHITE);
+        drawText(graphics, CONFIRM_TEXT, buttonX + PADDING, baseline, new Color(220, 255, 220));
+        confirmTarget = new ConfirmTarget(canvasButton, plugin.getWarningVersion());
+        return new Dimension(width, height);
     }
 
-    private boolean shouldRenderWarning()
+    private void drawText(Graphics2D graphics, String text, int x, int y, Color color)
     {
-        if (!plugin.shouldShowWarning())
-        {
-            return false;
-        }
-
-        MissingCondition condition = plugin.getCurrentMissingCondition();
-        return condition != MissingCondition.NONE;
+        TextComponent component = new TextComponent();
+        component.setText(text);
+        component.setPosition(new Point(x, y));
+        component.setColor(color);
+        component.render(graphics);
     }
 
-    private void setupPanelContent(String displayText)
+    boolean confirmAt(Point point)
     {
-        panelComponent.getChildren().clear();
-        panelComponent.getChildren().add(LineComponent.builder()
-            .left(displayText)
-            .build());
-    }
-
-    private void configurePanelSize(Graphics2D graphics, String displayText)
-    {
-        FontMetrics fontMetrics = graphics.getFontMetrics();
-        int textWidth = fontMetrics.stringWidth(displayText);
-        int padding = getTextPadding();
-        int totalWidth = textWidth + padding;
-
-        panelComponent.setPreferredSize(new Dimension(totalWidth, 0));
-    }
-
-    private void configurePanelColor()
-    {
-        Color backgroundColor = getCurrentBackgroundColor();
-        panelComponent.setBackgroundColor(backgroundColor);
-    }
-
-    private Color getCurrentBackgroundColor()
-    {
-        if (shouldFlash())
-        {
-            return config.flashColor();
-        }
-        return config.reminderColor();
-    }
-
-    private boolean shouldFlash()
-    {
-        if (!config.flashReminderBox())
+        ConfirmTarget target = confirmTarget;
+        if (target == null || !plugin.shouldShowWarning() || client.getGameState() != GameState.LOGGED_IN
+            || client.isMenuOpen() || !target.bounds.contains(point))
         {
             return false;
         }
 
-        int gameCycle = client.getGameCycle();
-        return gameCycle % 40 >= 20;
+        clearConfirmTarget();
+        plugin.confirmWarning(target.warningVersion);
+        return true;
     }
 
-    private Dimension renderPanel(Graphics2D graphics)
+    void clearConfirmTarget()
     {
-        boolean useCustomTextStyle = config.reminderStyle() == BookOfTheDeadNotifierStyle.CUSTOM_TEXT;
-        if (useCustomTextStyle)
-        {
-            return super.render(graphics);
-        }
-        return panelComponent.render(graphics);
+        confirmTarget = null;
     }
 
     private String getDisplayText()
     {
-        BookOfTheDeadNotifierStyle style = config.reminderStyle();
-        
-        if (style == BookOfTheDeadNotifierStyle.CUSTOM_TEXT)
-        {
-            return config.customText();
-        }
-
-        if (style == BookOfTheDeadNotifierStyle.LONG_TEXT)
-        {
-            return plugin.getReminderLongText();
-        }
-
-        if (style == BookOfTheDeadNotifierStyle.SHORT_TEXT)
-        {
-            return plugin.getReminderShortText();
-        }
-        
-        return null;
-    }
-
-    private int getTextPadding()
-    {
         switch (config.reminderStyle())
         {
-            case LONG_TEXT:
             case CUSTOM_TEXT:
-                return -20;
+                return config.customText() == null ? "" : config.customText();
             case SHORT_TEXT:
-                return 10;
+                return plugin.getReminderShortText();
             default:
-                return 0;
+                return plugin.getReminderLongText();
+        }
+    }
+
+    private static final class ConfirmTarget
+    {
+        private final Rectangle bounds;
+        private final long warningVersion;
+
+        private ConfirmTarget(Rectangle bounds, long warningVersion)
+        {
+            this.bounds = bounds;
+            this.warningVersion = warningVersion;
         }
     }
 }

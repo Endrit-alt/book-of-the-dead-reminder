@@ -160,7 +160,7 @@ public class PlayerLoadout
 		return runePouchRunes == null ? 0 : runePouchRunes.getIntValue(runeEnumId);
 	}
 
-	private boolean carriesRunePouch()
+	public boolean carriesRunePouch()
 	{
 		return RUNE_POUCH_ITEM_IDS.stream().anyMatch(this::carries);
 	}

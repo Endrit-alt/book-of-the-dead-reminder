@@ -34,7 +34,7 @@ public interface BookOfTheDeadNotifierConfig extends Config
     @ConfigItem(
         keyName = "hideReminderHotkey",
         name = "Hide Reminder Hotkey",
-        description = "Hotkey to dismiss the warning",
+        description = "Confirm the current warning until it clears or the missing requirement changes",
         position = 2
     )
     default Keybind hideReminderHotkey()
@@ -82,6 +82,18 @@ public interface BookOfTheDeadNotifierConfig extends Config
         section = notificationConditionsSection
     )
     default boolean notifyOnWrongSpellbook()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "checkCarriedRunePouch",
+        name = "Check Carried Rune Pouch",
+        description = "Confirm your current non-Arceuus spellbook when carrying a rune pouch; on Arceuus, warn about insufficient thrall runes even without the book",
+        position = 3,
+        section = notificationConditionsSection
+    )
+    default boolean checkCarriedRunePouch()
     {
         return true;
     }
@@ -197,8 +209,8 @@ public interface BookOfTheDeadNotifierConfig extends Config
 
 	@ConfigItem(
 		keyName = "supportButton",
-		name = "Buy me a coffee ❤",
-		description = "Enjoying the plugin? Click the box to open the Ko-fi page",
+		name = "Support the original author ❤",
+		description = "Click the box to open Jake's Ko-fi page",
 		section = feedbackSection,
 		position = 1
 	)
