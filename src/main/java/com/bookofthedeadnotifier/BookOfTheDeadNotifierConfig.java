@@ -34,7 +34,7 @@ public interface BookOfTheDeadNotifierConfig extends Config
     @ConfigItem(
         keyName = "hideReminderHotkey",
         name = "Hide Reminder Hotkey",
-        description = "Hotkey to dismiss the warning",
+        description = "Confirm the current warning until it clears or the missing requirement changes",
         position = 2
     )
     default Keybind hideReminderHotkey()
@@ -86,6 +86,18 @@ public interface BookOfTheDeadNotifierConfig extends Config
         return true;
     }
 
+    @ConfigItem(
+        keyName = "checkCarriedRunePouch",
+        name = "Check Carried Book or Pouch",
+        description = "Confirm your current non-Arceuus spellbook when carrying the Book of the Dead or a rune pouch; on Arceuus, a carried pouch warns about insufficient thrall runes even without the book",
+        position = 3,
+        section = notificationConditionsSection
+    )
+    default boolean checkCarriedRunePouch()
+    {
+        return true;
+    }
+
     @ConfigSection(
         name = "Thrall Spell",
         description = "Which thrall you cast and when to warn about runes",
@@ -122,7 +134,8 @@ public interface BookOfTheDeadNotifierConfig extends Config
     @ConfigSection(
         name = "Display Options",
         description = "Customize the appearance of warnings",
-        position = 5
+        position = 5,
+        closedByDefault = true
     )
     String displaySection = "displayOptions";
 
@@ -179,7 +192,8 @@ public interface BookOfTheDeadNotifierConfig extends Config
 	@ConfigSection(
 		name = "Feedback",
 		description = "Suggestions, bug reports, and support",
-		position = 99
+		position = 99,
+		closedByDefault = true
 	)
 	String feedbackSection = "feedbackSection";
 

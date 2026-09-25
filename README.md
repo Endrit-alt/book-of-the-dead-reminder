@@ -1,10 +1,22 @@
 # Book of the Dead Reminder
 
-A RuneLite plugin that reminds you when you're missing one requirement to cast thralls.
+A RuneLite plugin that reminds you when you're missing requirements to cast thralls.
+
+### Confirmation and pouch checks
+
+- **Confirm button** only on Ancients, Standard, and Lunar spellbook warnings, to acknowledge an intentional spellbook choice. Missing-book and missing-rune warnings have no button. The existing hide hotkey can still dismiss any warning.
+- **Persistent acknowledgment**: unrelated inventory updates, rune-count changes, and visual setting changes do not bring back the same warning or repeat its notification. Banking and withdrawing **either the book or the pouch independently** resets confirmation if the warning still applies, including deposit/withdraw transitions reported before the next game tick. A warning also returns after its condition clears and recurs, when a different requirement becomes the warning, when the spellbook being confirmed changes, after logout/world hopping, or after restarting the plugin. Dismissing a low-rune warning with the hotkey also acknowledges its later depletion until one of these resets.
+- **Check Carried Book or Pouch**, enabled by default: carrying the Book of the Dead or a rune pouch on a non-Arceuus spellbook prompts **Confirm spellbook : Ancients**, **Confirm spellbook : Standard**, or **Confirm spellbook : Lunar**, even without thrall runes. Either item is enough; you do not need both. Confirm acknowledges your intentional spellbook choice. It does not change the game's spellbook.
+- Spellbook confirmation takes priority. Switching to Arceuus reveals any missing-rune warning, even if the book is also missing. Fixing the runes can then reveal a missing-book warning. Each notification condition can still be disabled separately.
+- Pouch types and quantities are still checked against your selected tier. Inventory runes, combination runes, and equipped infinite sources count toward the total. An ancient-rune pouch with sufficient thrall supplies elsewhere does not produce a rune warning.
+- Full warning checks are combined once per game tick, including updates reported through backing varps, to avoid warnings from intermediate loadouts. Lightweight book/pouch presence observations preserve banking transitions between ticks.
+- **One loadout snapshot per check**: scan each inventory/equipment container once, resolve the pouch rune enum once, and read each pouch slot once. Rune totals use `long` addition and saturate at `Integer.MAX_VALUE` to prevent overflow from combined large stacks.
+
+The Confirm button consumes its click and does not click the game underneath. Alt-drag still moves the reminder. The reminder renders above widgets so the button remains visible while banking. Flashing affects only the warning text area; Confirm keeps its dark tint and turns bright green on hover.
 
 ## Features
 
-This plugin warns you when you have **exactly 2 out of 3 requirements** for casting thralls from the Arceuus spellbook:
+The original rule warns when you have **exactly 2 out of 3 requirements** for casting thralls. The plugin also checks carried items: either the book or pouch prompts confirmation of a non-Arceuus spellbook, while a pouch also checks thrall runes on Arceuus. Turn off **Check Carried Book or Pouch** to use only the original rule:
 
 ### The 3 Requirements:
 1. **Arceuus Spellbook** - You must be on the Arceuus spellbook
@@ -32,7 +44,7 @@ Instead of raw rune counts, the plugin works out how many thralls you can actual
 The plugin displays a reminder above your chatbox when you're missing one of these:
 
 - Missing **Book of the Dead**: "Missing Book of the Dead"
-- Wrong **Spellbook**: "Not on Arceuus spellbook"
+- Other **Spellbook**: "Confirm spellbook : Ancients", "Confirm spellbook : Standard", or "Confirm spellbook : Lunar"
 - Out of **Runes**: "Missing thrall runes"
 - Low on **Runes**: "Low on thrall runes (3 casts)"
 
@@ -43,7 +55,10 @@ The plugin displays a reminder above your chatbox when you're missing one of the
 - **Thrall Tier**: The thrall you cast, or Auto to follow your Magic level
 - **Minimum Casts**: Warn when you can cast fewer thralls than this (default: 1)
 - **Display Options**: Customize colors and enable flashing
-- **Hide Reminder Hotkey**: Set a hotkey to manually dismiss reminders
+- **Hide Reminder Hotkey**: Acknowledge any current warning, including missing-book and missing-rune warnings without a Confirm button
+- **Check Carried Book or Pouch**: Confirm a non-Arceuus spellbook and check insufficient thrall runes even when other requirements are also missing
+
+Long text names the spellbook with a confirmation prompt. Short text uses **Ancients!**, **Standard!**, or **Lunar!**. Custom text still uses the message you configure.
 
 ### Smart Rune Detection
 
@@ -52,3 +67,14 @@ The plugin intelligently detects:
 - Combo runes (Dust, Mist and Smoke count as air; Dust, Mud and Lava as earth; Lava, Smoke, Steam and Sunfire as fire)
 - Aether runes (count as cosmic runes)
 - Elemental staves and tomes as an infinite source of their element (air, earth and fire staves and battlestaves, the combo battlestaves, Tome of Fire and Tome of Earth)
+
+## Build and run locally
+
+Use JDK 11 or newer. On Windows:
+
+```powershell
+.\gradlew.bat test jar
+.\gradlew.bat runPlugin
+```
+
+On macOS/Linux, use `./gradlew` instead. `runPlugin` starts a developer RuneLite client with the local plugin loaded; disable the Plugin Hub copy in that client to avoid duplicate reminders. The built JAR is under `build/libs/`. It is not a standalone application or automatically installed into your regular RuneLite client.

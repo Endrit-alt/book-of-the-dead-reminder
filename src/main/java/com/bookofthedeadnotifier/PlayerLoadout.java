@@ -1,5 +1,10 @@
 package com.bookofthedeadnotifier;
 
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.EnumID;
@@ -11,187 +16,190 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.util.Set;
-
-/**
- * Reads what the player is carrying: worn equipment, inventory, and the runes stored in a rune
- * pouch. Every read must happen on the client thread.
- */
+/** Reads the current loadout on the client thread; returned snapshots need no further client reads. */
 @Singleton
 public class PlayerLoadout
 {
-	private static final int[] RUNE_POUCH_TYPE_VARBITS = {
-		VarbitID.RUNE_POUCH_TYPE_1,
-		VarbitID.RUNE_POUCH_TYPE_2,
-		VarbitID.RUNE_POUCH_TYPE_3,
-		VarbitID.RUNE_POUCH_TYPE_4,
-		VarbitID.RUNE_POUCH_TYPE_5,
-		VarbitID.RUNE_POUCH_TYPE_6
-	};
-	private static final int[] RUNE_POUCH_QUANTITY_VARBITS = {
-		VarbitID.RUNE_POUCH_QUANTITY_1,
-		VarbitID.RUNE_POUCH_QUANTITY_2,
-		VarbitID.RUNE_POUCH_QUANTITY_3,
-		VarbitID.RUNE_POUCH_QUANTITY_4,
-		VarbitID.RUNE_POUCH_QUANTITY_5,
-		VarbitID.RUNE_POUCH_QUANTITY_6
-	};
-	private static final Set<Integer> RUNE_POUCH_ITEM_IDS = Set.of(
-		ItemID.BH_RUNE_POUCH,
-		ItemID.BH_RUNE_POUCH_TROUVER,
-		ItemID.DIVINE_RUNE_POUCH,
-		ItemID.DIVINE_RUNE_POUCH_TROUVER);
-	private static final EquipmentInventorySlot[] INFINITE_SOURCE_SLOTS = {
-		EquipmentInventorySlot.WEAPON,
-		EquipmentInventorySlot.SHIELD
-	};
-	private static final int UNLIMITED = Integer.MAX_VALUE;
+    private static final int[] RUNE_POUCH_TYPE_VARBITS = {
+        VarbitID.RUNE_POUCH_TYPE_1, VarbitID.RUNE_POUCH_TYPE_2, VarbitID.RUNE_POUCH_TYPE_3,
+        VarbitID.RUNE_POUCH_TYPE_4, VarbitID.RUNE_POUCH_TYPE_5, VarbitID.RUNE_POUCH_TYPE_6
+    };
+    private static final int[] RUNE_POUCH_QUANTITY_VARBITS = {
+        VarbitID.RUNE_POUCH_QUANTITY_1, VarbitID.RUNE_POUCH_QUANTITY_2, VarbitID.RUNE_POUCH_QUANTITY_3,
+        VarbitID.RUNE_POUCH_QUANTITY_4, VarbitID.RUNE_POUCH_QUANTITY_5, VarbitID.RUNE_POUCH_QUANTITY_6
+    };
+    private static final Set<Integer> RUNE_POUCH_ITEM_IDS = Set.of(
+        ItemID.BH_RUNE_POUCH, ItemID.BH_RUNE_POUCH_TROUVER,
+        ItemID.DIVINE_RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH_TROUVER);
+    private static final ThrallRune[] RUNES = ThrallRune.values();
 
-	@Inject
-	private Client client;
+    @Inject
+    private Client client;
 
-	@Inject
-	private ItemManager itemManager;
+    @Inject
+    private ItemManager itemManager;
 
-	public static boolean isRunePouchVarbit(int varbitId)
-	{
-		return contains(RUNE_POUCH_TYPE_VARBITS, varbitId) || contains(RUNE_POUCH_QUANTITY_VARBITS, varbitId);
-	}
+    public static boolean isRunePouchVarbit(int varbitId)
+    {
+        for (int slot = 0; slot < RUNE_POUCH_TYPE_VARBITS.length; slot++)
+        {
+            if (RUNE_POUCH_TYPE_VARBITS[slot] == varbitId || RUNE_POUCH_QUANTITY_VARBITS[slot] == varbitId)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
-	/**
-	 * How many thralls of the given tier the player can currently cast.
-	 */
-	public int castsAvailable(ThrallTier tier)
-	{
-		// Resolved once per check rather than per rune: finding the pouch means scanning both
-		// containers for each of its four item ids.
-		boolean carriesRunePouch = carriesRunePouch();
-		return tier.castsAvailable(rune -> availableRunes(rune, carriesRunePouch));
-	}
+    /** One scan of each container, one enum lookup, and one read of each pouch slot. */
+    public Snapshot snapshot()
+    {
+        Readout readout = readContainers(true);
+        if (readout.pouch)
+        {
+            readRunePouch(readout);
+        }
+        return new Snapshot(readout.carriedItems(), readout.runes);
+    }
 
-	public boolean carries(int itemId)
-	{
-		return contains(InventoryID.EQUIPMENT, itemId) || contains(InventoryID.INVENTORY, itemId);
-	}
+    /** Lightweight event observation, without reading rune totals or pouch varbits. */
+    public CarriedItems carriedItems()
+    {
+        return readContainers(false).carriedItems();
+    }
 
-	private int availableRunes(ThrallRune rune, boolean carriesRunePouch)
-	{
-		if (hasInfiniteSourceEquipped(rune))
-		{
-			return UNLIMITED;
-		}
+    private Readout readContainers(boolean includeRunes)
+    {
+        Readout readout = new Readout();
+        readContainer(client.getItemContainer(InventoryID.INVENTORY), false, includeRunes, readout);
+        readContainer(client.getItemContainer(InventoryID.EQUIPMENT), true, includeRunes, readout);
+        return readout;
+    }
 
-		int carried = countInInventory(rune);
-		return carriesRunePouch ? carried + countInRunePouch(rune) : carried;
-	}
+    private void readContainer(ItemContainer container, boolean equipment, boolean includeRunes, Readout readout)
+    {
+        if (container == null)
+        {
+            return;
+        }
+        Item[] items = container.getItems();
+        for (int slot = 0; slot < items.length; slot++)
+        {
+            Item item = items[slot];
+            if (item == null || item.getId() < 0 || item.getQuantity() <= 0)
+            {
+                continue;
+            }
+            int canonicalId = itemManager.canonicalize(item.getId());
+            readout.book |= canonicalId == ItemID.BOOK_OF_THE_DEAD;
+            readout.pouch |= RUNE_POUCH_ITEM_IDS.contains(canonicalId);
+            if (!includeRunes)
+            {
+                continue;
+            }
+            if (!equipment)
+            {
+                // Use the actual id for runes: noted runes cannot be cast from.
+                readout.addRunes(item.getId(), item.getQuantity());
+            }
+            else if (slot == EquipmentInventorySlot.WEAPON.getSlotIdx()
+                || slot == EquipmentInventorySlot.SHIELD.getSlotIdx())
+            {
+                for (ThrallRune rune : RUNES)
+                {
+                    if (rune.isInfiniteSource(canonicalId))
+                    {
+                        readout.runes.put(rune, Integer.MAX_VALUE);
+                    }
+                }
+            }
+        }
+    }
 
-	private boolean hasInfiniteSourceEquipped(ThrallRune rune)
-	{
-		if (!rune.hasInfiniteSources())
-		{
-			return false;
-		}
+    private void readRunePouch(Readout readout)
+    {
+        EnumComposition runeEnum = client.getEnum(EnumID.RUNEPOUCH_RUNE);
+        if (runeEnum == null)
+        {
+            return;
+        }
+        for (int slot = 0; slot < RUNE_POUCH_TYPE_VARBITS.length; slot++)
+        {
+            int runeType = client.getVarbitValue(RUNE_POUCH_TYPE_VARBITS[slot]);
+            int quantity = client.getVarbitValue(RUNE_POUCH_QUANTITY_VARBITS[slot]);
+            if (runeType != 0 && quantity > 0)
+            {
+                readout.addRunes(runeEnum.getIntValue(runeType), quantity);
+            }
+        }
+    }
 
-		ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
-		if (equipment == null)
-		{
-			return false;
-		}
+    private static final class Readout
+    {
+        private boolean book;
+        private boolean pouch;
+        private final Map<ThrallRune, Integer> runes = new EnumMap<>(ThrallRune.class);
 
-		for (EquipmentInventorySlot slot : INFINITE_SOURCE_SLOTS)
-		{
-			Item item = equipment.getItem(slot.getSlotIdx());
-			if (item != null && rune.isInfiniteSource(itemManager.canonicalize(item.getId())))
-			{
-				return true;
-			}
-		}
+        private void addRunes(int itemId, int quantity)
+        {
+            for (ThrallRune rune : RUNES)
+            {
+                if (rune.isSatisfiedByRune(itemId))
+                {
+                    long total = (long) runes.getOrDefault(rune, 0) + quantity;
+                    runes.put(rune, (int) Math.min(Integer.MAX_VALUE, total));
+                }
+            }
+        }
 
-		return false;
-	}
+        private CarriedItems carriedItems()
+        {
+            return new CarriedItems(book, pouch);
+        }
+    }
 
-	private int countInInventory(ThrallRune rune)
-	{
-		ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-		if (inventory == null)
-		{
-			return 0;
-		}
+    public static final class CarriedItems
+    {
+        private final boolean book;
+        private final boolean pouch;
 
-		int count = 0;
-		for (Item item : inventory.getItems())
-		{
-			if (rune.isSatisfiedByRune(item.getId()))
-			{
-				count += item.getQuantity();
-			}
-		}
-		return count;
-	}
+        CarriedItems(boolean book, boolean pouch)
+        {
+            this.book = book;
+            this.pouch = pouch;
+        }
 
-	private int countInRunePouch(ThrallRune rune)
-	{
-		int count = 0;
-		for (int slot = 0; slot < RUNE_POUCH_TYPE_VARBITS.length; slot++)
-		{
-			count += countInRunePouchSlot(slot, rune);
-		}
-		return count;
-	}
+        public boolean hasBookOfTheDead()
+        {
+            return book;
+        }
 
-	private int countInRunePouchSlot(int slot, ThrallRune rune)
-	{
-		int runeEnumId = client.getVarbitValue(RUNE_POUCH_TYPE_VARBITS[slot]);
-		int quantity = client.getVarbitValue(RUNE_POUCH_QUANTITY_VARBITS[slot]);
+        public boolean hasRunePouch()
+        {
+            return pouch;
+        }
+    }
 
-		if (runeEnumId == 0 || quantity <= 0)
-		{
-			return 0;
-		}
+    public static final class Snapshot
+    {
+        private final CarriedItems carriedItems;
+        private final Map<ThrallRune, Integer> runes;
 
-		return rune.isSatisfiedByRune(runePouchItemId(runeEnumId)) ? quantity : 0;
-	}
+        Snapshot(CarriedItems carriedItems, Map<ThrallRune, Integer> runes)
+        {
+            this.carriedItems = carriedItems;
+            this.runes = new EnumMap<>(ThrallRune.class);
+            this.runes.putAll(runes);
+        }
 
-	private int runePouchItemId(int runeEnumId)
-	{
-		EnumComposition runePouchRunes = client.getEnum(EnumID.RUNEPOUCH_RUNE);
-		return runePouchRunes == null ? 0 : runePouchRunes.getIntValue(runeEnumId);
-	}
+        public CarriedItems getCarriedItems()
+        {
+            return carriedItems;
+        }
 
-	private boolean carriesRunePouch()
-	{
-		return RUNE_POUCH_ITEM_IDS.stream().anyMatch(this::carries);
-	}
-
-	private boolean contains(InventoryID containerId, int itemId)
-	{
-		ItemContainer container = client.getItemContainer(containerId);
-		if (container == null)
-		{
-			return false;
-		}
-
-		for (Item item : container.getItems())
-		{
-			if (itemManager.canonicalize(item.getId()) == itemId)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private static boolean contains(int[] values, int value)
-	{
-		for (int candidate : values)
-		{
-			if (candidate == value)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
+        public int castsAvailable(ThrallTier tier)
+        {
+            return tier.castsAvailable(rune -> runes.getOrDefault(rune, 0));
+        }
+    }
 }
