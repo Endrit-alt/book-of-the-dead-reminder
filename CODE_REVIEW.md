@@ -26,6 +26,20 @@ Reviewed the complete upstream source at `90eee3bdd863159b9f30473eaca35c68304898
 7. **Build resolution is moving.** `build.gradle` uses RuneLite `latest.release`, which is appropriate for keeping up with the client but means later builds can resolve a different API. Add CI against the current release, and optionally allow an explicit RuneLite-version override for reproducing bugs. The bundled Gradle wrapper is 8.12.1; consider setting its distribution checksum when maintaining the wrapper.
 8. **Very long custom text remains a single row.** The overlay autosizes to its text. A maximum width with word wrapping would prevent unusually long custom messages from extending beyond a small game window. Standard messages fit comfortably in the rendered previews.
 
+## Performance assessment
+
+The plugin is small and event-driven, so no noticeable FPS improvement is claimed without profiling. The useful improvements are reducing redundant work and making state transitions predictable.
+
+| Area | Current behavior | Recommendation/status |
+| --- | --- | --- |
+| Event bursts | Upstream immediately recalculates after each relevant inventory, equipment or varbit event. One loadout change can produce several events. | Implemented: mark state dirty and read the settled loadout once at the next game tick. Config/startup refreshes remain explicit. |
+| Inventory and equipment scans | `castsAvailable()` searches for the pouch, then scans inventory separately for each required rune. Warning evaluation searches for the pouch again, and the book check scans the containers again. | Next improvement: build one local loadout snapshot per refresh and reuse its book/pouch flags and rune totals. Avoid persistent caches that can become stale. |
+| Pouch reads | Each of the three required rune types rereads all six type/quantity pairs and obtains the rune enum for each populated slot. | Next improvement: read each slot once, resolve the enum once, and accumulate rune totals in an `EnumMap<ThrallRune, Integer>` or a small array. |
+| Frame rendering | The overlay measures text and creates its drawing components each visible frame. | Low priority: cache layout until text/font changes and reuse drawing components if a profiler shows allocation pressure. The overlay is tiny and only renders while a warning is visible. |
+| Broad backing-varp fallback | Any backing-varp change can mark the loadout dirty, even when unrelated to thralls. This protects against missed pouch updates. | If profiling justifies it, map the spellbook/pouch varbits to their backing varps and filter those IDs. Preserve game-version compatibility and the new regression test. |
+
+The highest-value correctness improvements were reliable acknowledgment, handling backing-varp updates, and clearing stale state. Those are implemented. A one-snapshot loadout reader and overflow-safe totals would be the next focused refactor; they are suggestions, not changes included in this fork yet.
+
 ## Suggested features, in priority order
 
 | Priority | Feature | Player benefit |
