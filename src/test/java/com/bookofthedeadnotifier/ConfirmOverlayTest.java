@@ -118,9 +118,15 @@ public class ConfirmOverlayTest
     public void flashingAndLowRuneTextRemainReadable() throws Exception
     {
         when(config.flashReminderBox()).thenReturn(true);
-        when(client.getGameCycle()).thenReturn(25);
         when(plugin.getReminderLongText()).thenReturn("Low on thrall runes (3 casts)");
+        when(client.getGameCycle()).thenReturn(0);
+        Point button = render("confirm-flash-base");
+        when(client.getGameCycle()).thenReturn(25);
         assertTrue(overlay.confirmAt(render("confirm-flash")));
+        when(client.getMouseCanvasPosition()).thenReturn(new net.runelite.api.Point(button.x, button.y));
+        render("confirm-flash-hover");
+        when(client.getGameCycle()).thenReturn(0);
+        render("confirm-flash-hover-base");
     }
 
     @Test
@@ -134,6 +140,11 @@ public class ConfirmOverlayTest
         when(client.getMouseCanvasPosition()).thenReturn(null);
         when(plugin.getReminderLongText()).thenReturn("Confirm spellbook : Standard");
         assertTrue(overlay.confirmAt(render("confirm-standard")));
+        when(config.reminderStyle()).thenReturn(BookOfTheDeadNotifierStyle.SHORT_TEXT);
+        when(plugin.getReminderShortText()).thenReturn("Ancients!");
+        render("confirm-ancients-short");
+        when(plugin.getReminderShortText()).thenReturn("Standard!");
+        render("confirm-standard-short");
     }
 
     private Point render(String filename) throws Exception

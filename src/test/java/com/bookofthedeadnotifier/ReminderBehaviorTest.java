@@ -79,6 +79,7 @@ public class ReminderBehaviorTest
         assertTrue(plugin.shouldShowWarning());
         assertEquals(MissingCondition.ARCEUUS_SPELLBOOK, plugin.getCurrentMissingCondition());
         assertEquals("Confirm spellbook : Ancients", plugin.getReminderLongText());
+        assertEquals("Ancients!", plugin.getReminderShortText());
         plugin.confirmWarning(plugin.getWarningVersion());
         refresh();
         assertFalse(plugin.shouldShowWarning());
@@ -92,11 +93,12 @@ public class ReminderBehaviorTest
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(0);
         refresh();
         assertEquals("Confirm spellbook : Standard", plugin.getReminderLongText());
+        assertEquals("Standard!", plugin.getReminderShortText());
         assertTrue(plugin.shouldShowWarning());
         plugin.confirmWarning(plugin.getWarningVersion());
         when(client.getVarbitValue(VarbitID.SPELLBOOK)).thenReturn(2);
         refresh();
-        assertEquals("Confirm spellbook : Lunar", plugin.getReminderShortText());
+        assertEquals("Lunar!", plugin.getReminderShortText());
         assertTrue(plugin.shouldShowWarning());
     }
 

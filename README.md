@@ -16,7 +16,7 @@ Plugin Hub revision `90eee3bdd863159b9f30473eaca35c68304898ac`. The original BSD
 - Full warning checks are combined once per game tick, including updates reported through backing varps, to avoid warnings from intermediate loadouts. Lightweight book/pouch presence observations preserve banking transitions between ticks.
 - **One loadout snapshot per check**: scan each inventory/equipment container once, resolve the pouch rune enum once, and read each pouch slot once. Rune totals use `long` addition and saturate at `Integer.MAX_VALUE` to prevent overflow from combined large stacks.
 
-The Confirm button consumes its click and does not click the game underneath. Alt-drag still moves the reminder. The reminder renders above widgets so the button remains visible while banking.
+The Confirm button consumes its click and does not click the game underneath. Alt-drag still moves the reminder. The reminder renders above widgets so the button remains visible while banking. Flashing affects only the warning text area; Confirm keeps its dark tint and turns bright green on hover.
 
 ## Features
 
@@ -62,7 +62,7 @@ The plugin displays a reminder above your chatbox when you're missing one of the
 - **Hide Reminder Hotkey**: Acknowledge the current warning, just like Confirm
 - **Check Carried Rune Pouch**: Confirm a non-Arceuus spellbook and check insufficient thrall runes even when other requirements are also missing
 
-Long and short text styles both name the spellbook. Custom text still uses the message you configure.
+Long text names the spellbook with a confirmation prompt. Short text uses **Ancients!**, **Standard!**, or **Lunar!**. Custom text still uses the message you configure.
 
 ### Smart Rune Detection
 

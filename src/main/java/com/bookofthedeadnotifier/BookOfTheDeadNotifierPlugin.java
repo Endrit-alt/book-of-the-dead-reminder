@@ -378,7 +378,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
     {
         if (currentMissingCondition == MissingCondition.ARCEUUS_SPELLBOOK)
         {
-            return getReminderLongText();
+            return getSpellbookName() + "!";
         }
         return isRunningLowOnRunes()
             ? describeCastsRemaining()
