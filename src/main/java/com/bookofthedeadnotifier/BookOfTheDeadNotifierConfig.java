@@ -134,7 +134,8 @@ public interface BookOfTheDeadNotifierConfig extends Config
     @ConfigSection(
         name = "Display Options",
         description = "Customize the appearance of warnings",
-        position = 5
+        position = 5,
+        closedByDefault = true
     )
     String displaySection = "displayOptions";
 
@@ -191,7 +192,8 @@ public interface BookOfTheDeadNotifierConfig extends Config
 	@ConfigSection(
 		name = "Feedback",
 		description = "Suggestions, bug reports, and support",
-		position = 99
+		position = 99,
+		closedByDefault = true
 	)
 	String feedbackSection = "feedbackSection";
 
