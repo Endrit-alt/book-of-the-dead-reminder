@@ -22,7 +22,6 @@ public class ThrallDataTest
 	{
 		assertEquals(7, ThrallRune.values().length);
 		assertEquals(3, ThrallTier.values().length);
-		assertEquals(4, ThrallTierSetting.values().length);
 		assertNotNull(new PlayerLoadout());
 	}
 
@@ -90,15 +89,6 @@ public class ThrallDataTest
 		assertEquals(ThrallTier.SUPERIOR, ThrallTier.highestCastableAt(75));
 		assertEquals(ThrallTier.GREATER, ThrallTier.highestCastableAt(76));
 		assertEquals(ThrallTier.GREATER, ThrallTier.highestCastableAt(99));
-	}
-
-	@Test
-	public void configuredTierOverridesMagicLevel()
-	{
-		assertEquals(ThrallTier.LESSER, ThrallTierSetting.LESSER.resolve(99));
-		assertEquals(ThrallTier.GREATER, ThrallTierSetting.GREATER.resolve(1));
-		assertEquals(ThrallTier.GREATER, ThrallTierSetting.AUTO.resolve(99));
-		assertEquals(ThrallTier.SUPERIOR, ThrallTierSetting.AUTO.resolve(60));
 	}
 
 	@Test

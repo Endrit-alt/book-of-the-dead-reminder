@@ -52,7 +52,7 @@ public interface BookOfTheDeadNotifierConfig extends Config
 
     @ConfigItem(
         keyName = "notifyOnMissingBook",
-        name = "Notify on Missing Book",
+        name = "Notify on Missing Thrall Book",
         description = "Show reminder when Book of the Dead is missing",
         position = 0,
         section = notificationConditionsSection
@@ -64,7 +64,7 @@ public interface BookOfTheDeadNotifierConfig extends Config
 
     @ConfigItem(
         keyName = "notifyOnMissingRunes",
-        name = "Notify on Missing Runes",
+        name = "Notify on Missing Thrall Runes",
         description = "Show reminder when thrall runes are missing",
         position = 1,
         section = notificationConditionsSection
@@ -99,42 +99,9 @@ public interface BookOfTheDeadNotifierConfig extends Config
     }
 
     @ConfigSection(
-        name = "Thrall Spell",
-        description = "Which thrall you cast and when to warn about runes",
-        position = 4,
-        closedByDefault = true
-    )
-    String thrallSpellSection = "thrallSpell";
-
-    @ConfigItem(
-        keyName = "thrallTier",
-        name = "Thrall Tier",
-        description = "The thrall you cast; Auto uses the highest your Magic level allows",
-        position = 0,
-        section = thrallSpellSection
-    )
-    default ThrallTierSetting thrallTier()
-    {
-        return ThrallTierSetting.AUTO;
-    }
-
-    @Range(min = 1, max = 1000)
-    @ConfigItem(
-        keyName = "minCasts",
-        name = "Minimum Casts",
-        description = "Warn when you can cast fewer thralls than this",
-        position = 1,
-        section = thrallSpellSection
-    )
-    default int minCasts()
-    {
-        return 1;
-    }
-
-    @ConfigSection(
         name = "Display Options",
         description = "Customize the appearance of warnings",
-        position = 5,
+        position = 4,
         closedByDefault = true
     )
     String displaySection = "displayOptions";
@@ -189,35 +156,4 @@ public interface BookOfTheDeadNotifierConfig extends Config
         return new Color(70, 70, 70, 150);
     }
 
-	@ConfigSection(
-		name = "Feedback",
-		description = "Suggestions, bug reports, and support",
-		position = 99,
-		closedByDefault = true
-	)
-	String feedbackSection = "feedbackSection";
-
-	@ConfigItem(
-		keyName = "suggestButton",
-		name = "Suggest a feature",
-		description = "Have an idea or found a bug? Click the box to open the GitHub issues page",
-		section = feedbackSection,
-		position = 0
-	)
-	default boolean suggestButton()
-	{
-		return false;
-	}
-
-	@ConfigItem(
-		keyName = "supportButton",
-		name = "Support the original author ❤",
-		description = "Click the box to open Jake's Ko-fi page",
-		section = feedbackSection,
-		position = 1
-	)
-	default boolean supportButton()
-	{
-		return false;
-	}
 }

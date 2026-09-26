@@ -145,8 +145,9 @@ public class ConfirmOverlayTest
             assertFalse(listener.mousePressed(event(MouseEvent.MOUSE_PRESSED, oldButton, 0, MouseEvent.BUTTON1)).isConsumed());
             assertFalse(listener.mousePressed(event(MouseEvent.MOUSE_PRESSED, warning, 0, MouseEvent.BUTTON1)).isConsumed());
         }
-        when(plugin.getReminderLongText()).thenReturn("Low on thrall runes (3 casts)");
-        assertFalse(overlay.confirmAt(render("warning-low-runes")));
+        when(config.reminderStyle()).thenReturn(BookOfTheDeadNotifierStyle.SHORT_TEXT);
+        when(plugin.getReminderShortText()).thenReturn("Runes!");
+        assertFalse(overlay.confirmAt(render("warning-runes-short")));
         when(config.reminderStyle()).thenReturn(BookOfTheDeadNotifierStyle.CUSTOM_TEXT);
         when(config.customText()).thenReturn("Confirm spellbook : Ancients");
         assertFalse(overlay.confirmAt(render("warning-custom-no-button")));

@@ -295,16 +295,44 @@ public class ReminderBehaviorTest
     }
 
     @Test
-    public void lowRuneTextTracksCountsWithoutNotificationSpam()
+    public void oneCastIsEnoughAndOnlyDepletionWarns()
     {
-        when(config.minCasts()).thenReturn(5);
         suppliedCasts = 3;
         refresh();
-        assertEquals("Low on thrall runes (3 casts)", plugin.getReminderLongText());
+        assertFalse(plugin.shouldShowWarning());
         suppliedCasts = 1;
         refresh();
-        assertEquals("1 cast", plugin.getReminderShortText());
+        assertFalse(plugin.shouldShowWarning());
+        verifyNoInteractions(notifier);
+        suppliedCasts = 0;
+        refresh();
+        assertTrue(plugin.shouldShowWarning());
+        assertEquals("Missing thrall runes", plugin.getReminderLongText());
+        assertEquals("Runes!", plugin.getReminderShortText());
+        refresh();
         verify(notifier, times(1)).notify(eq(config.notification()), anyString());
+    }
+
+    @Test
+    public void requiredRunesFollowAutomaticTierAtMagicLevelBoundaries()
+    {
+        for (ThrallTier tier : ThrallTier.values())
+        {
+            Map<ThrallRune, Integer> runes = new EnumMap<>(ThrallRune.class);
+            runes.putAll(tier.getRunesPerCast());
+            when(loadout.snapshot()).thenReturn(new PlayerLoadout.Snapshot(
+                new PlayerLoadout.CarriedItems(true, false), runes));
+            when(client.getRealSkillLevel(Skill.MAGIC)).thenReturn(tier.getMagicLevel());
+            refresh();
+            assertFalse(plugin.shouldShowWarning());
+            if (tier != ThrallTier.LESSER)
+            {
+                when(client.getRealSkillLevel(Skill.MAGIC)).thenReturn(tier.getMagicLevel() - 1);
+                refresh();
+                assertTrue(plugin.shouldShowWarning());
+                assertEquals(MissingCondition.THRALL_RUNES, plugin.getCurrentMissingCondition());
+            }
+        }
     }
 
     @Test

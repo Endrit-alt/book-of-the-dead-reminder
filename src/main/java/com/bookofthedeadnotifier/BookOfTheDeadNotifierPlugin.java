@@ -24,21 +24,16 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.HotkeyListener;
-import net.runelite.client.util.LinkBrowser;
 
 @Slf4j
 @PluginDescriptor(
-    name = "Book of the Dead Reminder",
-    description = "Reminds you when you seem to be missing a thrall requirement (Book of the Dead, Arceuus spellbook, Thrall runes)",
-    tags = {"jake", "arceuus", "thrall", "thralls", "book of the dead", "spell", "spellbook", "reminder", "necromancy", "resurrect", "ghost", "skeleton", "zombie", "rune", "runes", "lesser", "superior", "greater", "casts", "air", "earth", "fire", "mind", "death", "blood", "cosmic", "staff", "tome", "rune pouch"}
+    name = "Confirm Spellbook",
+    description = "Confirm your spellbook when carrying a thrall book or rune pouch, and check for missing thrall supplies",
+    tags = {"endrit", "confirm", "ancients", "standard", "lunar", "arceuus", "thrall", "thralls", "book of the dead", "spell", "spellbook", "reminder", "necromancy", "resurrect", "ghost", "skeleton", "zombie", "rune", "runes", "lesser", "superior", "greater", "casts", "air", "earth", "fire", "mind", "death", "blood", "cosmic", "staff", "tome", "rune pouch"}
 )
 public class BookOfTheDeadNotifierPlugin extends Plugin
 {
     private static final int ARCEUUS_SPELLBOOK = 3;
-    private static final String SUGGEST_BUTTON_KEY = "suggestButton";
-    private static final String SUPPORT_BUTTON_KEY = "supportButton";
-    private static final String ISSUES_URL = "https://github.com/Endrit-alt/book-of-the-dead-reminder/issues";
-    private static final String KO_FI_URL = "https://ko-fi.com/jakevollkommer";
 
     @Inject
     private Client client;
@@ -83,7 +78,6 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
     private volatile long warningVersion = 0;
     private boolean stateDirty = true;
     private volatile boolean active;
-    private int castsAvailable = 0;
     private int magicLevel = 1;
 
     private final HotkeyListener hotkeyListener = new HotkeyListener(() -> config.hideReminderHotkey())
@@ -105,7 +99,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         confirmMouseListener.reset();
         mouseManager.registerMouseListener(confirmMouseListener);
         clientThread.invokeLater(this::refreshPlayerState);
-        log.info("Book of the Dead Reminder started!");
+        log.info("Confirm Spellbook started!");
     }
 
     @Override
@@ -117,7 +111,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         keyManager.unregisterKeyListener(hotkeyListener);
         mouseManager.unregisterMouseListener(confirmMouseListener);
         confirmMouseListener.reset();
-        log.info("Book of the Dead Reminder stopped!");
+        log.info("Confirm Spellbook stopped!");
     }
 
     @Subscribe
@@ -179,8 +173,6 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         }
     }
 
-    // The config panel cannot host real buttons, so the Feedback "buttons" are checkboxes
-    // that act as buttons: any click of the box, tick or untick, opens the link.
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
@@ -189,34 +181,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
             return;
         }
 
-        if (openFeedbackLink(event))
-        {
-            return;
-        }
-
         clientThread.invokeLater(this::refreshPlayerState);
-    }
-
-    private boolean openFeedbackLink(ConfigChanged event)
-    {
-        if (event.getNewValue() == null)
-        {
-            return false;
-        }
-
-        if (SUGGEST_BUTTON_KEY.equals(event.getKey()))
-        {
-            LinkBrowser.browse(ISSUES_URL);
-            return true;
-        }
-
-        if (SUPPORT_BUTTON_KEY.equals(event.getKey()))
-        {
-            LinkBrowser.browse(KO_FI_URL);
-            return true;
-        }
-
-        return false;
     }
 
     private void refreshPlayerState()
@@ -249,9 +214,8 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
 
     private void checkThrallRunes(PlayerLoadout.Snapshot snapshot)
     {
-        ThrallTier tier = config.thrallTier().resolve(magicLevel);
-        castsAvailable = snapshot.castsAvailable(tier);
-        hasSufficientThrallRunes = castsAvailable >= config.minCasts();
+        ThrallTier tier = ThrallTier.highestCastableAt(magicLevel);
+        hasSufficientThrallRunes = snapshot.castsAvailable(tier) >= 1;
     }
 
     private void checkCarriedItems(PlayerLoadout.CarriedItems carriedItems)
@@ -370,9 +334,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         {
             return "Confirm spellbook : " + getSpellbookName();
         }
-        return isRunningLowOnRunes()
-            ? "Low on thrall runes (" + describeCastsRemaining() + ")"
-            : currentMissingCondition.getLongText();
+        return currentMissingCondition.getLongText();
     }
 
     public String getReminderShortText()
@@ -381,20 +343,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
         {
             return getSpellbookName() + "!";
         }
-        return isRunningLowOnRunes()
-            ? describeCastsRemaining()
-            : currentMissingCondition.getShortText();
-    }
-
-    // Below the configured minimum but not empty, so naming the shortfall beats "missing runes".
-    private boolean isRunningLowOnRunes()
-    {
-        return currentMissingCondition == MissingCondition.THRALL_RUNES && castsAvailable > 0;
-    }
-
-    private String describeCastsRemaining()
-    {
-        return castsAvailable == 1 ? "1 cast" : castsAvailable + " casts";
+        return currentMissingCondition.getShortText();
     }
 
     private void sendNotification()
@@ -404,7 +353,7 @@ public class BookOfTheDeadNotifierPlugin extends Plugin
             return;
         }
 
-        notifier.notify(config.notification(), "Thrall Reminder: " + getReminderLongText());
+        notifier.notify(config.notification(), "Confirm Spellbook: " + getReminderLongText());
     }
 
     public long getWarningVersion()
